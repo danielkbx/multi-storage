@@ -20,7 +20,7 @@ This module alone does not write, save or read any data. You need to install at 
 Create an instance of _MultiStorage_ and make it available with a method of your choice, e.g.
 
     let MultiStorage = require('node-multi-storage');
-    global.storage = new MultiStorage([provider1, provider2]);
+    global.storage = new MultiStorage({providers: [provider1, provider2]});
     
 You can add more provdiders late by calling
 
@@ -84,4 +84,4 @@ The stream is returned immediately, while the callback is called when an error o
     
 # Known Providers
 
-This section is filled once there are provders. One (for saving to the local file system) is almost ready for use.
+- [node-multi-storage-local](https://www.npmjs.com/package/node-multi-storage-local): Saving files to the local file system
