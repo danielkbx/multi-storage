@@ -11,7 +11,7 @@ can understand them as some kind of identifier.
 
 As with every NodeJS module, install it by using _npm_:
 
-    npm install --save multi-storage
+    npm install --save node-multi-storage
     
 This module alone does not write, save or read any data. You need to install at least one provider.
 
@@ -19,7 +19,7 @@ This module alone does not write, save or read any data. You need to install at 
 
 Create an instance of _MultiStorage_ and make it available with a method of your choice, e.g.
 
-    let MultiStorage = require('multi-storage');
+    let MultiStorage = require('node-multi-storage');
     global.storage = new MultiStorage([provider1, provider2]);
     
 You can add more provdiders late by calling
