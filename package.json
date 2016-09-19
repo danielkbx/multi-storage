@@ -1,5 +1,5 @@
 {
-  "name": "multi-storage",
+  "name": "node-multi-storage",
   "version": "1.0.0",
   "description": "Provides access to file system operations independent from the storage system used",
   "main": "MultiStorage.js",
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/danielkbx/multi-storage.git"
+    "url": "git+https://github.com/danielkbx/node-multi-storage.git"
   },
   "keywords": [
     "fs",
@@ -25,9 +25,9 @@
   "author": "Daniel Wetzel",
   "license": "GPL-3.0",
   "bugs": {
-    "url": "https://github.com/danielkbx/multi-storage/issues"
+    "url": "https://github.com/danielkbx/node-multi-storage/issues"
   },
-  "homepage": "https://github.com/danielkbx/multi-storage#readme",
+  "homepage": "https://github.com/danielkbx/node-multi-storage#readme",
   "dependencies": {
     "async": "^2.0.0-rc.6",
     "node-callback": "^1.0.2",
