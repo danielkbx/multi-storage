@@ -1,0 +1,50 @@
+{
+  "name": "multi-storage",
+  "version": "1.0.0",
+  "description": "Provides access to file system operations independent from the storage system used",
+  "main": "MultiStorage.js",
+  "engines": {
+    "node": ">=6.0"
+  },
+  "scripts": {
+    "test": "node_modules/mocha/bin/mocha test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danielkbx/multi-storage.git"
+  },
+  "keywords": [
+    "fs",
+    "files",
+    "storage",
+    "save",
+    "read",
+    "multi",
+    "providers"
+  ],
+  "author": "Daniel Wetzel",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/danielkbx/multi-storage/issues"
+  },
+  "homepage": "https://github.com/danielkbx/multi-storage#readme",
+  "dependencies": {
+    "async": "^2.0.0-rc.6",
+    "node-callback": "^1.0.2",
+    "node-uuid": "^1.4.7",
+    "underscore": "^1.8.3"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "grunt": "^1.0.1",
+    "grunt-available-tasks": "^0.6.3",
+    "grunt-cli": "^1.2.0",
+    "grunt-contrib-jshint": "^1.0.0",
+    "grunt-mocha-test": "^0.12.7",
+    "jshint": "^2.9.3",
+    "jshint-jenkins-checkstyle-reporter": "^0.1.2",
+    "jshint-stylish": "^2.2.1",
+    "load-grunt-config": "^0.19.2",
+    "mocha": "^2.5.3"
+  }
+}
