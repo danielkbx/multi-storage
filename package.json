@@ -1,6 +1,6 @@
 {
   "name": "node-multi-storage",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Provides access to file system operations independent from the storage system used",
   "main": "MultiStorage.js",
   "engines": {
