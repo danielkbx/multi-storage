@@ -9,6 +9,37 @@ var MultiStorage = require('../');
 
 describe('MultiStorage', () => {
 
+	describe('Tools', () => {
+
+		describe('humanReadableBytes', () => {
+
+			it('returns the correct bytes', () => {
+				expect(MultiStorage.humanReadableBytes(5)).to.equal('5 B');
+			});
+
+			it('returns the correct unrounded bytes', () => {
+				expect(MultiStorage.humanReadableBytes(500)).to.equal('500 B');
+			});
+
+			it('returns the correct rounded kilobytes', () => {
+				expect(MultiStorage.humanReadableBytes(1023)).to.equal('1 KB');
+			});
+
+			it('returns the correct kilobytes', () => {
+				expect(MultiStorage.humanReadableBytes(5000)).to.equal('5 KB');
+			});
+
+			it('returns the correct megabytes', () => {
+				expect(MultiStorage.humanReadableBytes(5000000)).to.equal('4.8 MB');
+			});
+
+			it('returns the correct gigabytes', () => {
+				expect(MultiStorage.humanReadableBytes(5000000000)).to.equal('4.66 GB');
+			});
+		});
+
+	});
+
 	// --- Providers Tests ---------------------------------------------------------------------------------------------
 
 	describe('Providers', () => {
@@ -169,12 +200,8 @@ describe('MultiStorage', () => {
 		it('calls the log function with debug level', (done) => {
 			// given
 			let log = function (level, text) {
-				if (level !== MultiStorage.logLevel.debug) {
-					return done(new Error('Expected log level debug, but received ' + level));
-				}
-				if (text !== 'Some text') {
-					return done(new Error('Expected text "Some text", but received ' + text));
-				}
+				expect(level).to.equal(MultiStorage.logLevel.debug);
+				expect(text).to.equal('Some text');
 				done();
 			};
 
@@ -182,6 +209,25 @@ describe('MultiStorage', () => {
 			var storage = new MultiStorage({
 				log: log
 			});
+			storage.logPrefix = '';
+
+			// then
+			storage._debug('Some %s', 'text');
+		});
+
+		it('calls the log function with correct prefix', (done) => {
+			// given
+			let log = function (level, text) {
+				expect(level).to.equal(MultiStorage.logLevel.debug);
+				expect(text).to.equal('prefix: Some text');
+				done();
+			};
+
+			// when
+			var storage = new MultiStorage({
+				log: log
+			});
+			storage.logPrefix = 'prefix: ';
 
 			// then
 			storage._debug('Some %s', 'text');
@@ -190,12 +236,8 @@ describe('MultiStorage', () => {
 		it('calls the log function with info level', (done) => {
 			// given
 			let log = function (level, text) {
-				if (level !== MultiStorage.logLevel.info) {
-					return done(new Error('Expected log level info, but received ' + level));
-				}
-				if (text !== 'Some text') {
-					return done(new Error('Expected text "Some text", but received ' + text));
-				}
+				expect(level).to.equal(MultiStorage.logLevel.info);
+				expect(text).to.equal('Some text');
 				done();
 			};
 
@@ -203,6 +245,7 @@ describe('MultiStorage', () => {
 			var storage = new MultiStorage({
 				log: log
 			});
+			storage.logPrefix = '';
 
 			// then
 			storage._info('Some %s', 'text');
@@ -211,12 +254,8 @@ describe('MultiStorage', () => {
 		it('calls the log function with warn level', (done) => {
 			// given
 			let log = function (level, text) {
-				if (level !== MultiStorage.logLevel.warn) {
-					return done(new Error('Expected log level warn, but received ' + level));
-				}
-				if (text !== 'Some text') {
-					return done(new Error('Expected text "Some text", but received ' + text));
-				}
+				expect(level).to.equal(MultiStorage.logLevel.warn);
+				expect(text).to.equal('Some text');
 				done();
 			};
 
@@ -224,6 +263,7 @@ describe('MultiStorage', () => {
 			var storage = new MultiStorage({
 				log: log
 			});
+			storage.logPrefix = '';
 
 			// then
 			storage._warn('Some %s', 'text');
@@ -232,12 +272,8 @@ describe('MultiStorage', () => {
 		it('calls the log function with error level', (done) => {
 			// given
 			let log = function (level, text) {
-				if (level !== MultiStorage.logLevel.error) {
-					return done(new Error('Expected log level error, but received ' + level));
-				}
-				if (text !== 'Some text') {
-					return done(new Error('Expected text "Some text", but received ' + text));
-				}
+				expect(level).to.equal(MultiStorage.logLevel.error);
+				expect(text).to.equal('Some text');
 				done();
 			};
 
@@ -245,6 +281,7 @@ describe('MultiStorage', () => {
 			var storage = new MultiStorage({
 				log: log
 			});
+			storage.logPrefix = '';
 
 			// then
 			storage._error('Some %s', 'text');

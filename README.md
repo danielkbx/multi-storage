@@ -29,6 +29,12 @@ You can add more provdiders late by calling
 Saving files is done by calling `post` or `postStream`, which both provide a list f URLs in their callbacks. These URLs
  are used to read the files later by calling `get` or `getStream`.
  
+ The options provided to the constructor can contain these fields:
+ 
+ - `providers`: An array of instances of providers used for storage.
+ - `log`: A function that is called when the instance wants to log something. If none is provided, log messages are
+ written to the console. See the section about [Logging](#Logging).
+ 
  # Saving files
  
  Saving data or a string is done by calling `post` passing an optional options object and a callback:
@@ -85,3 +91,14 @@ The stream is returned immediately, while the callback is called when an error o
 # Known Providers
 
 - [node-multi-storage-local](https://www.npmjs.com/package/node-multi-storage-local): Saving files to the local file system
+
+# Logging
+
+The function provides as log function is expected to have 2 parameters, `level` and `message`. These log levels are used:
+
+- debug
+- info
+- warn
+- error
+
+If no function is provided, all messages are written to the console.

@@ -8,11 +8,28 @@ let URL = require('url');
 let uuid = require('node-uuid');
 let PassThrough = require('stream').PassThrough;
 
+let hrBytes = function(bytes, decimals) {
+	if (bytes < (1024 * 0.5)) {
+		// just bytes
+		return bytes + ' B';
+	} else if (bytes < 1024 * 1024) {
+		// kilobytes
+		return Number(bytes / 1024).toFixed(decimals || 0) + ' KB';
+	} else if (bytes < 1024 * 1024 * 1024) {
+		// megabytes
+		return Number(bytes / 1024 / 1024).toFixed(decimals || 1) + ' MB';
+	}
+
+	return Number(bytes / 1024 / 1024 / 1024).toFixed(decimals || 2) + ' GB';
+};
+
 class MultiStorage {
 
 	constructor(options) {
 		this._providers = [];
 		this._logCallback = null;
+
+		this.logPrefix = 'storage: ';
 
 		options = options || {};
 
@@ -90,6 +107,9 @@ class MultiStorage {
 
 	_log(level, message) {
 		if (this._logCallback) {
+			if (_.isString(this.logPrefix)) {
+				message = this.logPrefix + message;
+			}
 			this._logCallback(level, message);
 		}
 	}
@@ -277,6 +297,8 @@ class MultiStorage {
 			path: ''
 		}, options);
 
+		that._debug('postStream "%s"', options.name);
+
 		// collect the information about each handle (which is the provider's stream, error and url)
 		let handlers = [];
 
@@ -313,12 +335,13 @@ class MultiStorage {
 		for (let i = 0; i < this.providers.length; i++) {
 			let provider = this.providers[i];
 
-			let handler = {stream: null, url: null, error: null};
+			let handler = {stream: null, url: null, error: null, name: provider.name};
 			handlers.push(handler);
 			let stream = provider.postStream(options, createProviderFunctionCallCallback(handler));
 
 			// if one of the providers returns an error or null we abort
 			if (!stream || Error.prototype.isPrototypeOf(stream)) {
+				that._warn('Provider %s could not provide a writeable stream', provider.name);
 				let err = Error.prototype.isPrototypeOf(stream) ? stream : new Error(printf('Failed to create stream for provider %s', provider.name));
 				// get rid of all the things we already have
 				handlers = [];
@@ -326,18 +349,41 @@ class MultiStorage {
 				cb.call(err, null);
 				return null;
 			} else {
+				that._debug('Provider %s provided writeable stream', provider.name);
 				handler.stream = stream;
 			}
 		}
 
 		let stream = new PassThrough();
-		handlers.forEach((providerStream) => {
-			stream.pipe(providerStream.stream);
+		let receivedBytes = 0;
+		stream.on('data', (chunk) => {
+			receivedBytes += chunk.length;
 		});
 
+		stream.on('end', () => {
+			that._debug('Post stream ended');
+		});
 		stream.on('finish', () => {
+			that._debug('Post stream finished posting %s, unwinding pipes', hrBytes(receivedBytes));
 			handlers.forEach((providerStream) => {
 				stream.unpipe(providerStream);
+			});
+		});
+
+		stream.on('error', (err) => {
+			that._warn('Post stream received error: %s', err.message);
+		});
+
+		handlers.forEach((handler) => {
+			stream.pipe(handler.stream);
+			that._debug('Piping post stream to writeable stream of provider %s', handler.name);
+
+			handler.stream.on('error', (err) => {
+				that._debug('Stream of provider %s had an error: %s', handler.name, err.message);
+			});
+
+			handler.stream.on('close', () => {
+				that._debug('Stream of provider %s closed', handler.name);
 			});
 		});
 
@@ -372,6 +418,7 @@ MultiStorage.logLevel = {
 	error: 'error'
 };
 
+MultiStorage.humanReadableBytes = hrBytes;
 module.exports = MultiStorage;
 
 /**

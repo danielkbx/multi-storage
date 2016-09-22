@@ -1,39 +1,54 @@
 {
-  "name": "node-multi-storage",
-  "version": "1.0.2",
-  "description": "Provides access to file system operations independent from the storage system used",
-  "main": "MultiStorage.js",
-  "engines": {
-    "node": ">=6.0"
-  },
-  "scripts": {
-    "test": "node_modules/mocha/bin/mocha test"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/danielkbx/node-multi-storage.git"
-  },
-  "keywords": [
-    "fs",
-    "files",
-    "storage",
-    "save",
-    "read",
-    "multi",
-    "providers"
+  "_args": [
+    [
+      {
+        "raw": "node-multi-storage@file:///Users/daniel/Projekte/multi-storage/multi-storage",
+        "scope": null,
+        "escapedName": "node-multi-storage",
+        "name": "node-multi-storage",
+        "rawSpec": "file:///Users/daniel/Projekte/multi-storage/multi-storage",
+        "spec": "/Users/daniel/Projekte/multi-storage/multi-storage",
+        "type": "directory"
+      },
+      "/Users/daniel/Projekte/kumkju/TPS"
+    ]
   ],
-  "author": "Daniel Wetzel",
-  "license": "GPL-3.0",
+  "_from": "../../multi-storage/multi-storage",
+  "_id": "node-multi-storage@1.0.2",
+  "_inCache": true,
+  "_installable": true,
+  "_location": "/node-multi-storage",
+  "_phantomChildren": {},
+  "_requested": {
+    "raw": "node-multi-storage@file:///Users/daniel/Projekte/multi-storage/multi-storage",
+    "scope": null,
+    "escapedName": "node-multi-storage",
+    "name": "node-multi-storage",
+    "rawSpec": "file:///Users/daniel/Projekte/multi-storage/multi-storage",
+    "spec": "/Users/daniel/Projekte/multi-storage/multi-storage",
+    "type": "directory"
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "file:../../multi-storage/multi-storage",
+  "_shasum": "1d40d851a934921c9dfdd9a5453a453963792c1b",
+  "_shrinkwrap": null,
+  "_spec": "node-multi-storage@file:///Users/daniel/Projekte/multi-storage/multi-storage",
+  "_where": "/Users/daniel/Projekte/kumkju/TPS",
+  "author": {
+    "name": "Daniel Wetzel"
+  },
   "bugs": {
     "url": "https://github.com/danielkbx/node-multi-storage/issues"
   },
-  "homepage": "https://github.com/danielkbx/node-multi-storage#readme",
   "dependencies": {
     "async": "^2.0.0-rc.6",
     "node-callback": "^1.0.2",
     "node-uuid": "^1.4.7",
     "underscore": "^1.8.3"
   },
+  "description": "Provides access to file system operations independent from the storage system used",
   "devDependencies": {
     "chai": "^3.5.0",
     "grunt": "^1.0.1",
@@ -46,5 +61,33 @@
     "jshint-stylish": "^2.2.1",
     "load-grunt-config": "^0.19.2",
     "mocha": "^2.5.3"
-  }
+  },
+  "engines": {
+    "node": ">=6.0"
+  },
+  "gitHead": "fe4fdbd1c313691151233251fce0e324e1879081",
+  "homepage": "https://github.com/danielkbx/node-multi-storage#readme",
+  "keywords": [
+    "fs",
+    "files",
+    "storage",
+    "save",
+    "read",
+    "multi",
+    "providers"
+  ],
+  "license": "GPL-3.0",
+  "main": "MultiStorage.js",
+  "name": "node-multi-storage",
+  "optionalDependencies": {},
+  "readme": "# multi-storage\n\nmulti-storage is a NodeJS module for the abstraction of saveing and reading \"files\" or streamed data. Instead of using\n_fs_ or _stream_ directly, it is much more flexible to use an abstraction layer that forwards the data transfer calls\nto an appropriate data provider.\n\nWhen saving a file a list of URLs is provided, one for each provider. These URLs are used to read the file later. You \ncan understand them as some kind of identifier.\n\n# Installation\n\nAs with every NodeJS module, install it by using _npm_:\n\n    npm install --save node-multi-storage\n    \nThis module alone does not write, save or read any data. You need to install at least one provider.\n\n# Usage\n\nCreate an instance of _MultiStorage_ and make it available with a method of your choice, e.g.\n\n    let MultiStorage = require('node-multi-storage');\n    global.storage = new MultiStorage({providers: [provider1, provider2]});\n    \nYou can add more provdiders late by calling\n\n    storage.addProvider(provider);\n    \nSaving files is done by calling `post` or `postStream`, which both provide a list f URLs in their callbacks. These URLs\n are used to read the files later by calling `get` or `getStream`.\n \n The options provided to the constructor can contain these fields:\n \n - `providers`: An array of instances of providers used for storage.\n - `log`: A function that is called when the instance wants to log something. If none is provided, log messages are\n written to the console. See the section about [Logging](#Logging).\n \n # Saving files\n \n Saving data or a string is done by calling `post` passing an optional options object and a callback:\n \n     let options = {name: 'notice.txt', path: 'notes'};\n     storage.post(dataToSave, options, (err, urls) => {\n        // handle the error\n        // persist the received URLs\n     });\n     \nThe options object is passed to each provider, some may accept more parameters while ignoring the default ones which are\n\n- `name`: The name of the file. Defaults to a random UUID-style string. This is for internal use only, do not use it to\nidentify files. If you want to save the name of a file (e.g. an uploaded file), you need to persist the name on your own.\n- `path`: A path as it would be used in a filesystem. The effect depends on the provider. Defaults to an empty string.\n- `encoding`: The encoding of the data. Defaults to `utf-8`.\n\nInstead of handing strings or other data in a variable you can use streams to save:\n\n    let streamWithData = getReadableStreamSonewhere();\n\n    let options = {name: 'notice.txt', path: 'notes'};\n    let stream = storage.postStream(options, (err, urls) => {\n        // handle the error\n        // persist the received URLs        \n    });\n    \n    streamWithData.pipe(stream);\n    \nThis function returns a stream you can write in or use it as a pipe destination. Once the input ends (or fails) the \ncallback is called providing again the URLs of the files.\n\n# Reading files\n\nReading the content of a file is done by calling `get` passing the URL you received when you saved the file:\n\n    storage.get(url, (err, data) => {\n        // handle the error\n        // do whatever you want with the data\n    });\n   \nIf you prefer having a stream instead of the content of the file, use 'getStream' which delivers a readable stream:\n\n    let stream = storage.getStream(url, (err) => {\n        // handle the error        \n    });\n    \n    if (stream) {\n        stream.pipe(res);\n    }\n    \nThe stream is returned immediately, while the callback is called when an error occurs or the stream signals the end of data.\n    \n# Known Providers\n\n- [node-multi-storage-local](https://www.npmjs.com/package/node-multi-storage-local): Saving files to the local file system\n\n# Logging\n\nThe function provides as log function is expected to have 2 parameters, `level` and `message`. These log levels are used:\n\n- debug\n- info\n- warn\n- error\n\nIf no function is provided, all messages are written to the console.",
+  "readmeFilename": "README.md",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danielkbx/node-multi-storage.git"
+  },
+  "scripts": {
+    "test": "node_modules/mocha/bin/mocha test"
+  },
+  "version": "1.0.2"
 }
