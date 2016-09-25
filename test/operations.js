@@ -184,13 +184,14 @@ describe('Operations', () => {
 			let writeStream = new InMemoryStringWriteStream();
 
 			// when
-			let stream = storage.getStream('mock://something', (err) => {
+			let stream = storage.getStream('mock://something', (err, bytes) => {
 				// then
 				if (!provider.didCallGetStream) {
 					return done(new Error('Expected getStream called on the provider but this did not happen'));
 				}
 				let receivedData = writeStream.receivedData;
 				expect(receivedData).to.equal('Some data');
+				expect(bytes).to.equal('Some data'.length);
 				done(err);
 			});
 
@@ -299,7 +300,7 @@ describe('Operations', () => {
 			let storage = new MultiStorage({providers: [provider1, provider2]});
 
 			// when
-			storage.post('some data', (err, urls) => {
+			storage.post('some data', (err, urls, bytes) => {
 				// then
 				if (!provider1.didCallPost || !provider2.didCallPost) {
 					return done(new Error('Expected post called on the provider but this did not happen'));
@@ -307,6 +308,7 @@ describe('Operations', () => {
 				expect(urls.length).to.equal(2);
 				expect(urls[0].startsWith('mock://')).to.equal(true);
 				expect(urls[1].startsWith('mock://')).to.equal(true);
+				expect(bytes).to.equal('some data'.length);
 				done(err);
 			});
 		});
@@ -411,11 +413,12 @@ describe('Operations', () => {
 			};
 
 			// when
-			let stream = storage.postStream((err, urls) => {
+			let stream = storage.postStream((err, urls, bytes) => {
 				// then
 				expect(urls.length).to.equal(2);
 				expect(data1).to.equal('some test data');
 				expect(data2).to.equal('some test data');
+				expect(bytes).to.equal('some test data'.length);
 				done(err);
 			});
 

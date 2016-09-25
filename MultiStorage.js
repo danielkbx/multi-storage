@@ -146,8 +146,10 @@ class MultiStorage {
 	/**
 	 * Determines the provider to be used for a given URL. If multiple providers match the scheme of the URL, the provider
 	 * with the highest priority is used.
+	 * Though this function accepts and uses a callback, it returns the found provider immediately.
 	 * @param {string} url
 	 * @param {MultiStorageGetProviderForURLCallback} callback
+	 * @returns {Object} The provider accepting the url
 	 */
 	getProviderForUrl(url, callback) {
 		let cb = new Callback(arguments);
@@ -187,10 +189,10 @@ class MultiStorage {
 	}
 
 	/**
-	 * Returns the data of the file at the given url. If no encoding is given 'utf-8' is used.
+	 * Returns the data of the file with the given url.
 	 *
-	 * @param {string} path
-	 * @param {string} encoding
+	 * @param {string} url The url you received when posting the data.
+	 * @param {string} encoding The encoding used for the data, defaults to utf-8
 	 * @param {MultiStorageGetCallback} callback
 	 */
 	get(url, encoding, callback) {
@@ -216,6 +218,14 @@ class MultiStorage {
 		});
 	}
 
+	/**
+	 * Creates and returns a readable stream for the data with the given url.
+	 * If no stream can be created, null is returned and the callback is called with an error.
+	 *
+	 * @param {string} url The url you received when posting the data.
+	 * @param {MultiStorageGetStreamCallback} callback
+	 * @returns {Readable|null} The stream that emits the data
+	 */
 	getStream(url, callback) {
 		let cb = new Callback(arguments);
 
@@ -233,23 +243,34 @@ class MultiStorage {
 			return null;
 		}
 
+		let bytes = 0;
 		let didCallCallback = false;
+		stream.on('data', chunk => bytes += chunk.length);
 		stream.on('error', (err) => {
 			if (!didCallCallback) {
 				didCallCallback = true;
-				cb.call(err);
+				cb.call(err, bytes);
 			}
 		});
 		stream.on('end', () => {
 			if (!didCallCallback) {
 				didCallCallback = true;
-				cb.call();
+				cb.call(null, bytes);
 			}
 		});
 
 		return stream;
 	}
 
+	/**
+	 * Posts the given data to all providers.
+	 * @param {*} data The data to save.
+	 * @param {Object} options
+	 * @param {string} options.encoding The encoding of the data, defaults to utf-8.
+	 * @param (string} options.name The name of the file. Defaults to an UUID string.
+	 * @param {string} options.path The path of the file, used for grouping and hierarchical structures.
+	 * @param {MultiStoragePostCallback} callback
+	 */
 	post(data, options, callback) {
 		let that = this;
 		let cb = new Callback(arguments);
@@ -273,19 +294,24 @@ class MultiStorage {
 				doneE(err);
 			});
 		}, (err) => {
+			let bytes = data.length;
 			if (err) {
 				that._error(err.message);
+				bytes = 0;
 			}
-			cb.call(err, urls);
+			cb.call(err, urls, bytes);
 		});
 	}
 
 	/**
 	 * Creates and returns a stream for every provider. These streams are returned immediately while the
 	 * callback is called when all streams have been closed.
-	 * @param options
-	 * @param callback
-	 * @returns {[Stream]}
+	 * @param {Object} options
+	 * @param {string} options.encoding The encoding of the data, defaults to utf-8.
+	 * @param (string} options.name The name of the file. Defaults to an UUID string.
+	 * @param {string} options.path The path of the file, used for grouping and hierarchical structures.
+	 * @param {MultiStoragePostStreamCallback} callback
+	 * @returns {Stream}
 	 */
 	postStream(options, callback) {
 		let that = this;
@@ -301,6 +327,7 @@ class MultiStorage {
 
 		// collect the information about each handle (which is the provider's stream, error and url)
 		let handlers = [];
+		let receivedBytes = 0;
 
 		let handleProviderCallsBack = function() {
 
@@ -318,7 +345,7 @@ class MultiStorage {
 					err = new Error('Failed to save stream, see underlying errors');
 					err.underlyingErrors = errors;
 				}
-				cb.call(err, urls);
+				cb.call(err, urls, receivedBytes);
 			}
 		};
 
@@ -355,7 +382,6 @@ class MultiStorage {
 		}
 
 		let stream = new PassThrough();
-		let receivedBytes = 0;
 		stream.on('data', (chunk) => {
 			receivedBytes += chunk.length;
 		});
@@ -390,6 +416,11 @@ class MultiStorage {
 		return stream;
 	}
 
+	/**
+	 * Deletes the file with the url.
+	 * @param {string} url The url you received when posting the data.
+	 * @param {MultiStorageDeleteCallback} callback
+	 */
 	delete(url, callback) {
 		let that = this;
 		let cb = new Callback(arguments);
@@ -422,6 +453,26 @@ MultiStorage.humanReadableBytes = hrBytes;
 module.exports = MultiStorage;
 
 /**
+ * @callback MultiStoragePostCallback
+ * @param {Error} err The error that occurred during posting or null.
+ * @param {[string]} urls The URLs of the saved files. Persist this to read the files later.
+ * @param {number} bytes The size of the written file in bytes.
+ */
+
+/**
+ * @callback MultiStoragePostStreamCallback
+ * @param {Error} err The error that occurred during posting or null.
+ * @param {[string]} urls The URLs of the saved files. Persist this to read the files later.
+ * @param {number} bytes The size of the written file in bytes.
+ */
+
+/**
+ * @callback MultiStorageGetStreamCallback
+ * @param {Error} err The error that occurred during posting or null.
+ * @param {number} bytes The size of the read file in bytes.
+ */
+
+/**
  * @callback MultiStorageGetProviderForURLCallback
  * @param {Error} err
  * @param {MultiStorageProvider} provider
@@ -429,6 +480,11 @@ module.exports = MultiStorage;
 
 /**
  * @callback MultiStorageGetCallback
- * @param {Error} err
- * @param data
+ * @param {Error} The error that occurred while reading the file.
+ * @param {*} data
+ */
+
+/**
+ * @callback MultiStorageDeleteCallback
+ * @param {Error} err The error that occurred during the deletion.
  */
