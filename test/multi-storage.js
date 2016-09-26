@@ -40,6 +40,65 @@ describe('MultiStorage', () => {
 
 	});
 
+	describe('Options', () => {
+
+		it('creates the default options', () => {
+			// given
+			let storage = new MultiStorage();
+			let options = {};
+
+			// when
+			options = storage.optionsForOptions(options);
+
+			// then
+			expect(options.encoding).to.equal('utf-8');
+			expect(options.name.length).to.be.gt(5);
+			expect(options.path).to.equal('');
+		});
+
+		it('keeps the existing settings', () => {
+			// given
+			let storage = new MultiStorage();
+			let options = {name: 'name.txt', path: 'path/subpath', encoding: 'utf-16'};
+
+			// when
+			options = storage.optionsForOptions(options);
+
+			// then
+			expect(options.encoding).to.equal('utf-16');
+			expect(options.name).to.equal('name.txt');
+			expect(options.path).to.equal('path/subpath');
+		});
+
+		it('composes an unique name but keeps the extension', () => {
+			// given
+			let storage = new MultiStorage();
+			let options = {name: '%.txt'};
+
+			// when
+			options = storage.optionsForOptions(options);
+
+			// then
+			expect(options.name.length).to.be.gt(6);
+			expect(options.name.endsWith('.txt')).to.be.true;
+		});
+
+		it('composes an unique name but keeps the extension and fixed parts if present', () => {
+			// given
+			let storage = new MultiStorage();
+			let options = {name: 'base-%.txt'};
+
+			// when
+			options = storage.optionsForOptions(options);
+
+			// then
+			expect(options.name.length).to.be.gt(10);
+			expect(options.name.endsWith('.txt')).to.be.true;
+			expect(options.name.startsWith('base-')).to.be.true;
+		});
+
+	});
+
 	// --- Providers Tests ---------------------------------------------------------------------------------------------
 
 	describe('Providers', () => {

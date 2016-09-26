@@ -262,6 +262,21 @@ class MultiStorage {
 		return stream;
 	}
 
+	optionsForOptions(options) {
+		options = _.extend({
+			encoding: 'utf-8',
+			path: ''
+		}, options);
+
+		if (!options.name) {
+			options.name = uuid.v4();
+		} else if (options.name.indexOf('%') !== -1) {
+			options.name = options.name.replace('%', uuid.v4());
+		}
+
+		return options;
+	}
+
 	/**
 	 * Posts the given data to all providers.
 	 * @param {*} data The data to save.
@@ -279,11 +294,7 @@ class MultiStorage {
 			options = {};
 		}
 
-		options = _.extend({
-			encoding: 'utf-8',
-			name: uuid.v4(),
-			path: ''
-		}, options);
+		options = that.optionsForOptions(options);
 
 		let urls = [];
 		async.each(this.providers, (provider, doneE) => {
@@ -317,11 +328,7 @@ class MultiStorage {
 		let that = this;
 		let cb = new Callback(arguments);
 
-		options = _.extend({
-			encoding: 'utf-8',
-			name: uuid.v4(),
-			path: ''
-		}, options);
+		options = that.optionsForOptions(options);
 
 		that._debug('postStream "%s"', options.name);
 

@@ -49,6 +49,7 @@ The options object is passed to each provider, some may accept more parameters w
 
 - `name`: The name of the file. Defaults to a random UUID-style string. This is for internal use only, do not use it to
 identify files. If you want to save the name of a file (e.g. an uploaded file), you need to persist the name on your own.
+The character "%" is replaced with an UUID. So you can keep the extension by passing '%.png' or 'upload-%.jpg'.
 - `path`: A path as it would be used in a filesystem. The effect depends on the provider. Defaults to an empty string.
 - `encoding`: The encoding of the data. Defaults to `utf-8`.
 
@@ -94,7 +95,7 @@ The stream is returned immediately, while the callback is called when an error o
 
 # Logging
 
-The function provides as log function is expected to have 2 parameters, `level` and `message`. These log levels are used:
+The function provided as log function is expected to have 2 parameters, `level` and `message`. These log levels are used:
 
 - debug
 - info
