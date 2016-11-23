@@ -5,7 +5,7 @@ let printf = require('util').format;
 let Callback = require('node-callback');
 let async = require('async');
 let URL = require('url');
-let uuid = require('node-uuid');
+let uuid = require('uuid');
 let PassThrough = require('stream').PassThrough;
 
 let hrBytes = function(bytes, decimals) {
