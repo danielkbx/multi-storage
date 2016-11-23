@@ -45,8 +45,8 @@
   "dependencies": {
     "async": "^2.0.0-rc.6",
     "node-callback": "^1.0.2",
-    "node-uuid": "^1.4.7",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "uuid": "^3.0.0"
   },
   "description": "Provides access to file system operations independent from the storage system used",
   "devDependencies": {
