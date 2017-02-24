@@ -109,9 +109,7 @@ describe('MultiStorage', () => {
 			}
 			get name() {return 'MockProvider'}
 			get schemes() { return this._schemes}
-			get() {}
 			getStream() {}
-			post() {}
 			postStream() {}
 			delete() {}
 		}
@@ -244,11 +242,12 @@ describe('MultiStorage', () => {
 			let storage = new MultiStorage({providers: [provider1, provider2]});
 
 			// when
-			storage.getProviderForUrl('scheme1://something', (err, providerToUse) => {
-				// then
-				expect(providerToUse).to.equal(provider1);
-				done(err);
-			});
+			storage.getProviderForUrl('scheme1://something')
+				.then((provider) => {
+					expect(provider).to.equal(provider1);
+					done();
+				})
+				.catch(err => done(err));
 		});
 	});
 

@@ -1,12 +1,11 @@
 'use strict';
 
-let _ = require('underscore');
-let printf = require('util').format;
-let Callback = require('node-callback');
-let async = require('async');
-let URL = require('url');
-let uuid = require('node-uuid');
-let PassThrough = require('stream').PassThrough;
+const _ = require('underscore');
+const printf = require('util').format;
+const async = require('async');
+const URL = require('url');
+const uuid = require('node-uuid');
+const PassThrough = require('stream').PassThrough;
 
 let hrBytes = function(bytes, decimals) {
 	if (bytes < (1024 * 0.5)) {
@@ -63,16 +62,8 @@ class MultiStorage {
 				this._error('Provider does not conform to expected interface missing name property');
 				return false;
 			}
-			if (!_.isFunction(candidate.get)) {
-				this._error('Provider %s does not conform to expected interface missing get function', candidate.name);
-				return false;
-			}
 			if (!_.isFunction(candidate.getStream)) {
 				this._error('Provider %s does not conform to expected interface missing getStream function', candidate.name);
-				return false;
-			}
-			if (!_.isFunction(candidate.post)) {
-				this._error('Provider %s does not conform to expected interface missing post function', candidate.name);
 				return false;
 			}
 			if (!_.isFunction(candidate.postStream)) {
@@ -146,13 +137,10 @@ class MultiStorage {
 	/**
 	 * Determines the provider to be used for a given URL. If multiple providers match the scheme of the URL, the provider
 	 * with the highest priority is used.
-	 * Though this function accepts and uses a callback, it returns the found provider immediately.
 	 * @param {string} url
-	 * @param {MultiStorageGetProviderForURLCallback} callback
-	 * @returns {Object} The provider accepting the url
+	 * @returns {Promise}
 	 */
-	getProviderForUrl(url, callback) {
-		let cb = new Callback(arguments);
+	getProviderForUrl(url) {
 		let that = this;
 
 		let parsedUrl = URL.parse(url);
@@ -160,8 +148,7 @@ class MultiStorage {
 			// return early when the URL is invalid
 			let err = new Error(printf('Invalid URL "%s"', url));
 			that._error(err.message);
-			cb.call(err);
-			return err;
+			return Promise.reject(err);
 		}
 
 		let scheme = parsedUrl.protocol;
@@ -169,8 +156,7 @@ class MultiStorage {
 			// return early when the scheme is invalid
 			let err = new Error(printf('Invalid scheme in URL "%s"', url));
 			that._error(err.message);
-			cb.call(err);
-			return err;
+			return Promise.reject(err);
 		}
 
 		scheme = scheme.substring(0, parsedUrl.protocol.length - 1); // remove the :
@@ -179,87 +165,94 @@ class MultiStorage {
 			// return early when no provider for this scheme is known
 			let err = new Error(printf('No provider found for URL "%s"', url));
 			that._error(err.message);
-			cb.call(err);
-			return err;
+			return Promise.reject(err);
 		}
 
 		// finally, call the callback with the first available provider
-		cb.call(null, providersWithScheme[0]);
-		return providersWithScheme[0];
+		return Promise.resolve(providersWithScheme[0]);
 	}
 
 	/**
-	 * Returns the data of the file with the given url.
+	 * Returns a promise that resolves with the data of the given URL.
 	 *
 	 * @param {string} url The url you received when posting the data.
 	 * @param {string} encoding The encoding used for the data, defaults to utf-8
-	 * @param {MultiStorageGetCallback} callback
 	 */
-	get(url, encoding, callback) {
+	get(url, encoding) {
 		let that = this;
-		let cb = new Callback(arguments);
 
-		if (_.isFunction(encoding) && !callback) {
+		if (!_.isString(encoding) || encoding.length === 0) {
 			encoding = 'utf-8';
 		}
 
-		async.waterfall([
-			function getProvider(doneW) {
-				that.getProviderForUrl(url, doneW);
-			},
-			function callProvider(provider, doneW) {
-				provider.get(url, encoding, doneW);
-			}
-		], function(err, result) {
-			if (err) {
-				that._error(err.message);
-			}
-			cb.call(err, result);
-		});
+		return this.getProviderForUrl(url)
+			.then((provider) => {
+				if (_.isFunction(provider.get)) {
+					return provider.get(url, encoding);
+				} else {
+					return new Promise((resolve, reject) => {
+						let data = null;
+						that.getStream(url)
+						.then((stream) => {
+							stream.on('error', err => reject(err));
+							stream.on('data', (chunk) => {
+								if (_.isNull(data)) {
+									data = chunk;
+								} else {
+									data += chunk;
+								}
+							});
+							stream.on('end', () => {
+								if (encoding.toLowerCase() !== 'binary') {
+									data = data.toString(encoding);
+								}
+								resolve(data);
+							});
+						})
+						.catch(err => reject(err));
+					});
+				}
+			});
 	}
 
 	/**
-	 * Creates and returns a readable stream for the data with the given url.
-	 * If no stream can be created, null is returned and the callback is called with an error.
+	 * Returns a promise that is resolved with the stream for the given URL.
 	 *
 	 * @param {string} url The url you received when posting the data.
-	 * @param {MultiStorageGetStreamCallback} callback
-	 * @returns {Readable|null} The stream that emits the data
+	 * @returns {Promise}
 	 */
-	getStream(url, callback) {
-		let cb = new Callback(arguments);
+	getStream(url) {
+		let  that = this;
 
-		let provider = this.getProviderForUrl(url);
-		if (Error.prototype.isPrototypeOf(provider)) {
-			let err = provider;
-			cb.call(err);
-			return null;
-		}
+		return new Promise((resolve, reject) => {
+			let provider = null;
+			that.getProviderForUrl(url)
+				.then((foundProvider) => {
+					provider = foundProvider;
+					return provider.getStream(url);
+				})
+				.then((stream) => {
+					// when we have the stream we attach our promise handlers
+					// first the error
+					stream.on('error', reject);
+					// then the bytes counter
+					let bytes = 0;
+					stream.on('data', chunk => bytes += chunk.length);
+					stream.on('end', () => {
+						that._debug('getStream from provider %s ended with %s bytes of data', provider.name, hrBytes(bytes, 1));
+					});
 
-		let stream = provider.getStream(url);
-		if (Error.prototype.isPrototypeOf(stream)) {
-			let err = stream;
-			cb.call(err);
-			return null;
-		}
-
-		let bytes = 0;
-		let didCallCallback = false;
-		stream.on('data', chunk => bytes += chunk.length);
-		stream.on('error', (err) => {
-			if (!didCallCallback) {
-				didCallCallback = true;
-				cb.call(err, bytes);
-			}
+					stream.promisePipe = function(targetStream) {
+						return new Promise((resolve, reject) => {
+							stream.on('error', reject);
+							stream.on('end', () => {resolve(bytes)});
+							stream.pipe(targetStream);
+						});
+					};
+					resolve(stream);
+				})
+				.catch(err => reject(err));
 		});
-		stream.on('end', () => {
-			if (!didCallCallback) {
-				didCallCallback = true;
-				cb.call(null, bytes);
-			}
-		});
-
-		return stream;
 	}
 
 	optionsForOptions(options) {
@@ -278,173 +271,139 @@ class MultiStorage {
 	}
 
 	/**
-	 * Posts the given data to all providers.
+	 * Returns a promise that resolves when the data has been written.
 	 * @param {*} data The data to save.
 	 * @param {Object} options
 	 * @param {string} options.encoding The encoding of the data, defaults to utf-8.
 	 * @param (string} options.name The name of the file. Defaults to an UUID string.
 	 * @param {string} options.path The path of the file, used for grouping and hierarchical structures.
-	 * @param {MultiStoragePostCallback} callback
 	 */
-	post(data, options, callback) {
+	post(data, options) {
 		let that = this;
-		let cb = new Callback(arguments);
 
-		if (_.isFunction(options) && !callback) {
+		if (!_.isObject(options)) {
 			options = {};
 		}
-
 		options = that.optionsForOptions(options);
 
-		let urls = [];
-		async.each(this.providers, (provider, doneE) => {
-			provider.post(data, options, (err, url) => {
-				if (url) {
-					urls.push(url);
-				}
-				doneE(err);
-			});
-		}, (err) => {
-			let bytes = data.length;
-			if (err) {
-				that._error(err.message);
-				bytes = 0;
+		let providerPromises = this.providers.map((provider) => {
+			if (_.isFunction(provider.post)) {
+				return provider.post(data, options);
+			} else {
+				return provider.postStream(options)
+					.then((stream) => {
+						return new Promise((resolve, reject) => {
+							stream.on('finish', () => resolve(stream));
+							stream.on('error', (err) => reject(err));
+							stream.end(data);
+						});
+					})
+					.then((stream) => stream.url);
 			}
-			cb.call(err, urls, bytes);
 		});
+		return Promise.all(providerPromises);
 	}
 
-	/**
-	 * Creates and returns a stream for every provider. These streams are returned immediately while the
-	 * callback is called when all streams have been closed.
-	 * @param {Object} options
-	 * @param {string} options.encoding The encoding of the data, defaults to utf-8.
-	 * @param (string} options.name The name of the file. Defaults to an UUID string.
-	 * @param {string} options.path The path of the file, used for grouping and hierarchical structures.
-	 * @param {MultiStoragePostStreamCallback} callback
-	 * @returns {Stream}
-	 */
-	postStream(options, callback) {
+	postStream(options) {
 		let that = this;
-		let cb = new Callback(arguments);
-
 		options = that.optionsForOptions(options);
 
 		that._debug('postStream "%s"', options.name);
 
-		// collect the information about each handle (which is the provider's stream, error and url)
-		let handlers = [];
-		let receivedBytes = 0;
+		let providerPostPromises = this.providers.map(provider => provider.postStream(options));
+		let outputStreams = [];
 
-		let handleProviderCallsBack = function() {
+		let inputStream = new PassThrough(); // this is the stream we expose to the caller
+		inputStream.urls = []; // attach the urls array so the caller gets the information
+		inputStream.bytes = 0;
+		inputStream.on('data', chunk => inputStream.bytes += chunk.length);
 
-			let unfinishedHandlers = handlers.filter(candidate => _.isNull(candidate.error) && _.isNull(candidate.url));
-			let finishedHandlers = handlers.filter(candidate => !_.isNull(candidate.error) || !_.isNull(candidate.url));
-			if (unfinishedHandlers.length === 0 && finishedHandlers.length > 0) {
-				let successfulHandlers = handlers.filter(candidate => !_.isNull(candidate.url));
-				let failedHandlers = handlers.filter(candidate => !_.isNull(candidate.error));
+		return new Promise((resolve, reject) => {
+			Promise.all(providerPostPromises)
+				.then((providerStreams) => {
+					let providers = that.providers;
+					if (providerStreams.length !== providers.length) {
+						reject(new Error('One of the providers did not provide a stream for "%s"', options.name));
+						return;
+					}
+					// attach the provider to the stream so we have a handle to it
+					for (var i = 0; i < providerStreams.length; i++) {
+						providerStreams[i]._provider = providers[i];
+					}
 
-				let urls = successfulHandlers.map(handler => handler.url);
-				let errors = failedHandlers.map(handler => handler.error);
+					// attach the waitForFinish promise
+					let waitForFinishResolve = null;
+					let waitForFinishReject = null;
+					inputStream.waitForFinish = function() {
+						return new Promise((finishResolve, finishReject) => {
+							waitForFinishResolve = finishResolve;
+							waitForFinishReject = finishReject;
+						});
+					};
 
-				let err = null;
-				if (errors.length > 0) {
-					err = new Error('Failed to save stream, see underlying errors');
-					err.underlyingErrors = errors;
-				}
-				cb.call(err, urls, receivedBytes);
-			}
-		};
+					// attach the event handlers for the input streams
+					inputStream.on('finish', () => {
+						that._debug('Finished postStream "%s" with %d bytes of data', options.name, inputStream.bytes);
+					});
+					inputStream.on('end', () => {
+						that._debug('Ended postStream "%s", unwinding pipes', options.name);
+						outputStreams.forEach(outputStream => inputStream.unpipe(outputStream));
+						if (waitForFinishResolve) {
+							waitForFinishResolve(inputStream);
+						}
+					});
+					inputStream.on('error', (err) => {
+						that._debug('postStream (inputStream) for "%s" received error: %s', options.name, err.message)
+						if (waitForFinishReject) {
+							waitForFinishReject(err);
+						}
+					});
 
-		let createProviderFunctionCallCallback = function(handler) {
-			return function(err, url) {
-				if (handler.stream) {
-					handler.error = err;
-					handler.url = url;
-					handleProviderCallsBack();
-				}
-			};
-		};
+					// take every provider stream and …
+					outputStreams = providerStreams;
+					outputStreams.forEach((outputStream) => {
 
-		for (let i = 0; i < this.providers.length; i++) {
-			let provider = this.providers[i];
+						// … pipe the providers stream as destination to our input stream
+						if (!_.isString(outputStream.url) || outputStream.url.length < 4) {
+							reject(new Error(printf('Provider "%s" did not provide an URL for "%s"', outputStream._provider.name, options.name)));
+						}
+						inputStream.pipe(outputStream);
+						// … collect the url
+						inputStream.urls.push(outputStream.url);
 
-			let handler = {stream: null, url: null, error: null, name: provider.name};
-			handlers.push(handler);
-			let stream = provider.postStream(options, createProviderFunctionCallCallback(handler));
+						// … attach the error handler
+						outputStream.on('error', reject);
+						// … add the size information
+						outputStream.bytes = 0;
+						outputStream.on('data', chunk => outputStream.bytes += chunk.length);
+						// … add the end/finish handler
+						outputStream.on('finish', () => {
+							that._debug('Provider "%s" wrote %d bytes for "%s"', outputStream._provider.name, outputStream.bytes, options.name);
+						});
+						outputStream.on('close', () => {
+							that._debug('Provider "%s" closed stream for "%s"', outputStream._provider.name, options.name);
+						});
+						outputStream.on('error', (err) => {
+							that._debug('Provider %s" for "%s" received error: %s', outputStream._provider.name, options.name, err.message);
+							if (waitForFinishReject) {
+								waitForFinishReject(err);
+							}
+						});
+						that._debug('Piping input stream to output stream of provider for "%s"', options.name);
+					});
 
-			// if one of the providers returns an error or null we abort
-			if (!stream || Error.prototype.isPrototypeOf(stream)) {
-				that._warn('Provider %s could not provide a writeable stream', provider.name);
-				let err = Error.prototype.isPrototypeOf(stream) ? stream : new Error(printf('Failed to create stream for provider %s', provider.name));
-				// get rid of all the things we already have
-				handlers = [];
-				// and exit here
-				cb.call(err, null);
-				return null;
-			} else {
-				that._debug('Provider %s provided writeable stream', provider.name);
-				handler.stream = stream;
-			}
-		}
-
-		let stream = new PassThrough();
-		stream.on('data', (chunk) => {
-			receivedBytes += chunk.length;
+					resolve(inputStream);
+				})
+				.catch(err => reject(err));
 		});
-
-		stream.on('end', () => {
-			that._debug('Post stream ended');
-		});
-		stream.on('finish', () => {
-			that._debug('Post stream finished posting %s, unwinding pipes', hrBytes(receivedBytes));
-			handlers.forEach((providerStream) => {
-				stream.unpipe(providerStream);
-			});
-		});
-
-		stream.on('error', (err) => {
-			that._warn('Post stream received error: %s', err.message);
-		});
-
-		handlers.forEach((handler) => {
-			stream.pipe(handler.stream);
-			that._debug('Piping post stream to writeable stream of provider %s', handler.name);
-
-			handler.stream.on('error', (err) => {
-				that._debug('Stream of provider %s had an error: %s', handler.name, err.message);
-			});
-
-			handler.stream.on('close', () => {
-				that._debug('Stream of provider %s closed', handler.name);
-			});
-		});
-
-		return stream;
 	}
 
 	/**
-	 * Deletes the file with the url.
+	 * Returns a promise that resolves when the file for the url has been deleted.
 	 * @param {string} url The url you received when posting the data.
-	 * @param {MultiStorageDeleteCallback} callback
 	 */
-	delete(url, callback) {
-		let that = this;
-		let cb = new Callback(arguments);
-
-		async.waterfall([
-			function getProvider(doneW) {
-				that.getProviderForUrl(url, doneW);
-			},
-			function callProvider(provider, doneW) {
-				provider.delete(url, doneW);
-			}
-		], function(err, result) {
-			if (err) {
-				that._error(err.message);
-			}
-			cb.call(err, result);
-		});
+	delete(url) {
+		return this.getProviderForUrl(url).then(provider => provider.delete(url));
 	}
 
 }
@@ -458,40 +417,3 @@ MultiStorage.logLevel = {
 
 MultiStorage.humanReadableBytes = hrBytes;
 module.exports = MultiStorage;
-
-/**
- * @callback MultiStoragePostCallback
- * @param {Error} err The error that occurred during posting or null.
- * @param {[string]} urls The URLs of the saved files. Persist this to read the files later.
- * @param {number} bytes The size of the written file in bytes.
- */
-
-/**
- * @callback MultiStoragePostStreamCallback
- * @param {Error} err The error that occurred during posting or null.
- * @param {[string]} urls The URLs of the saved files. Persist this to read the files later.
- * @param {number} bytes The size of the written file in bytes.
- */
-
-/**
- * @callback MultiStorageGetStreamCallback
- * @param {Error} err The error that occurred during posting or null.
- * @param {number} bytes The size of the read file in bytes.
- */
-
-/**
- * @callback MultiStorageGetProviderForURLCallback
- * @param {Error} err
- * @param {MultiStorageProvider} provider
- */
-
-/**
- * @callback MultiStorageGetCallback
- * @param {Error} The error that occurred while reading the file.
- * @param {*} data
- */
-
-/**
- * @callback MultiStorageDeleteCallback
- * @param {Error} err The error that occurred during the deletion.
- */

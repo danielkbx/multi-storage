@@ -1,3 +1,5 @@
+![Build Status](https://jenkins.danielkbx.com/buildStatus/icon?job=node-multi-storage%20Tests "Build Status")
+
 # multi-storage
 
 multi-storage is a NodeJS module for the abstraction of saveing and reading "files" or streamed data. Instead of using
@@ -6,6 +8,16 @@ to an appropriate data provider.
 
 When saving a file a list of URLs is provided, one for each provider. These URLs are used to read the file later. You 
 can understand them as some kind of identifier.
+
+As of version 2 multi-storage does not support callbacks anymore. Instead, Promises are returned for all actions.
+
+# Changelog
+
+## 2.0
+
+- removed support for callbacks
+- added support for Promises
+- using provider's postStream for post calls when the provider does not provider a post method
 
 # Installation
 
@@ -26,8 +38,8 @@ You can add more provdiders late by calling
 
     storage.addProvider(provider);
     
-Saving files is done by calling `post` or `postStream`, which both provide a list f URLs in their callbacks. These URLs
- are used to read the files later by calling `get` or `getStream`.
+Saving files is done by calling `post` or `postStream`, which both return a promise. After saving the files, the URLs 
+are provided which are used to read the files later by calling `get` or `getStream`.
  
  The options provided to the constructor can contain these fields:
  
@@ -37,13 +49,13 @@ Saving files is done by calling `post` or `postStream`, which both provide a lis
  
  # Saving files
  
- Saving data or a string is done by calling `post` passing an optional options object and a callback:
+ Saving data or a string is done by calling `post` passing an optional options object:
  
      let options = {name: 'notice.txt', path: 'notes'};
-     storage.post(dataToSave, options, (err, urls) => {
-        // handle the error
-        // persist the received URLs
-     });
+     storage.post('a nice string to save')
+         .then((urls) => {
+            // persist the received URLs
+         });     
      
 The options object is passed to each provider, some may accept more parameters while ignoring the default ones which are
 
@@ -53,41 +65,70 @@ The character "%" is replaced with an UUID. So you can keep the extension by pas
 - `path`: A path as it would be used in a filesystem. The effect depends on the provider. Defaults to an empty string.
 - `encoding`: The encoding of the data. Defaults to `utf-8`.
 
-Instead of handing strings or other data in a variable you can use streams to save:
+The promise is fulfilled once all providers finished saving the data passing an array of string containing the urls.
+
+Instead of handing strings or other data in a variable you can use __streams__ to save:
 
     let streamWithData = getReadableStreamSonewhere();
 
     let options = {name: 'notice.txt', path: 'notes'};
-    let stream = storage.postStream(options, (err, urls) => {
-        // handle the error
-        // persist the received URLs        
-    });
+    storage.postStream(options)
+       .then((stream) => {
+           // write into the stream
+       });
     
-    streamWithData.pipe(stream);
-    
-This function returns a stream you can write in or use it as a pipe destination. Once the input ends (or fails) the 
-callback is called providing again the URLs of the files.
+The returned promise is fulfilled with a writeable stream once every provider is ready to received data. This stream can 
+be used to write data to or as a pipe destination. Furthermore, events can be attached to detect the end of data. For 
+convenience, this stream has a promise-returning function `waitForFinish` which again returns a promise which resolves,
+once the stream finished streaming data (and is rejected if an errror occurs). Furthermore, the stream has a property
+`urls` which is an array with the URLs:
+
+    let streamWithData = getReadableStreamSonewhere();
+    storage.postStream()
+           .then((stream) => {
+               streamWithData.pipe(stream);
+               return stream.waitForFinish();
+           })
+           .then((stream) => {
+                let urls = stream.urls;
+                // persist the received urls                
+           })
+           .catch((err) => {
+                // handle the error here
+           });
+
 
 # Reading files
 
 Reading the content of a file is done by calling `get` passing the URL you received when you saved the file:
 
-    storage.get(url, (err, data) => {
-        // handle the error
-        // do whatever you want with the data
-    });
+    storage.get(url, 'utf-8')
+        .then((string) => {
+            console.log(string);
+        });
+        
+Depending on the provider, the given _encoding_ might be ignored. Passing 'binary' as encoding returns the raw data (as
+buffer).
    
-If you prefer having a stream instead of the content of the file, use 'getStream' which delivers a readable stream:
+If you prefer having a stream instead of the content of the file, use 'getStream' which returns a promise that resolves
+with a stream:
 
-    let stream = storage.getStream(url, (err) => {
-        // handle the error        
-    });
+    storage.getStream(url)
+        .then((stream) => {
+            stream.on('end', () => {
+                // handle the end of streaming here
+            });
+            stream.pipe(res);
+        });    
     
-    if (stream) {
-        stream.pipe(res);
-    }
-    
-The stream is returned immediately, while the callback is called when an error occurs or the stream signals the end of data.
+For convenience, the provided stream has a pipe replacement-function which returns a promise once the stream ends:
+
+    // example for a typical Express route
+    storage.getStream(url)
+        .then(stream => stream.promisePipe(res))
+        .then(bytes => console.log(bytes + ' bytes received'))
+        .catch(err => next(err));
+
     
 # Known Providers
 
