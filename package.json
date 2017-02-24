@@ -88,5 +88,5 @@
   "scripts": {
     "test": "node_modules/mocha/bin/mocha test"
   },
-  "version": "2.0.0"
+  "version": "2.0.1"
 }
