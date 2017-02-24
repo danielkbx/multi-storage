@@ -353,7 +353,7 @@ class MultiStorage {
 						}
 					});
 					inputStream.on('error', (err) => {
-						that._debug('postStream (inputStream) for "%s" received error: %s', options.name, err.message)
+						that._debug('postStream (inputStream) for "%s" received error: %s', options.name, err.message);
 						if (waitForFinishReject) {
 							waitForFinishReject(err);
 						}
